@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, useParams } from 'react-router-dom';
+import { nanoid } from 'nanoid';
 
 // --- CONFIGURATION & HELPERS ---
 
@@ -167,8 +168,8 @@ const SidebarTabs = ({ tabs, activeTabId, onTabSwitch, onTabAdd, onTabDelete, sh
                                 <div key={tab.id} className={`group flex items-center justify-between gap-2 transition-colors cursor-pointer px-3 py-2 ${tab.id === activeTabId ? theme.sidebarActive : `${theme.sidebarText} ${theme.sidebarHover}`}`} onClick={() => onTabSwitch(tab.id)}>
                                     <span className="flex-1 truncate text-sm font-medium select-none">{getTabName(tab.content)}</span>
                                     {tabs.length > 1 && (<button className="opacity-0 group-hover:opacity-60 hover:!opacity-100 transition p-1" onClick={e => { e.stopPropagation(); onTabDelete(tab.id); }} title="Delete entry"><CrossIcon className="text-gray-500 group-hover:text-red-500" /></button>)}
-                                </div>
-                            ))}
+                    </div>
+                ))}
                         </div>
                     </div>
                     <div className={`p-3 border-t ${theme.sidebarBorder}`}>
@@ -182,6 +183,38 @@ const SidebarTabs = ({ tabs, activeTabId, onTabSwitch, onTabAdd, onTabDelete, sh
 }
 
 // --- MAIN APP ---
+
+async function shareNote(content, font, theme) {
+  const id = nanoid(6);
+  const apiKey = '$2a$10$yDW0KZDxCD3fZGm/7i.yOuVmYs9kCFVzppLTL5L.nF2ij4Fc4ffoS'; // Replace with your key
+  const url = 'https://api.jsonbin.io/v3/b';
+  const data = { content, font, theme };
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Master-Key': apiKey,
+      'X-Bin-Name': id,
+      'X-Collection-Id': '', // Optional: you can organize bins in collections
+    },
+    body: JSON.stringify(data)
+  });
+  const json = await res.json();
+  // json.record is your data, json.metadata.id is the bin id
+  return json.metadata.id; // Use this as the share id
+}
+
+async function fetchNote(id) {
+  const apiKey = '$2a$10$yDW0KZDxCD3fZGm/7i.yOuVmYs9kCFVzppLTL5L.nF2ij4Fc4ffoS'; // Replace with your key
+  const url = `https://api.jsonbin.io/v3/b/${id}/latest`;
+  const res = await fetch(url, {
+    headers: { 'X-Master-Key': apiKey }
+  });
+  if (!res.ok) return null;
+  const json = await res.json();
+  return json.record;
+}
 
 export default function App() {
     const [sessionId] = useState(getOrCreateSessionId);
@@ -300,19 +333,7 @@ export default function App() {
         }
         
         try {
-            const response = await fetch('/api/share', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    content: currentTab.content,
-                    font: currentFont.name,
-                    theme: isLightMode ? 'light' : 'dark'
-                })
-            });
-            
-            if (!response.ok) throw new Error('Failed to share');
-            
-            const { id } = await response.json();
+            const id = await shareNote(currentTab.content, FONT_OPTIONS[fontIndex].name, isLightMode ? 'light' : 'dark');
             const shareUrl = `${window.location.origin}/s/${id}`;
             
             // Copy to clipboard
