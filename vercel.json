@@ -1,9 +1,6 @@
 {
   "rewrites": [
-    {
-      "source": "/s/:id",
-      "destination": "/public/s/[id]/index.html"
-    }
+    { "source": "/s/:id", "destination": "/" }
   ],
   "functions": {
     "api/share.js": {
