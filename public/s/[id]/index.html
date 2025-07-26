@@ -6,6 +6,7 @@
     <title>Shared Entry - Freespeak</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Lora:ital,wght@0,400;0,700;1,400&family=Inconsolata:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <style>
         .font-system { font-family: system-ui, -apple-system, sans-serif; }
         .font-inter { font-family: 'Inter', sans-serif; }
@@ -32,19 +33,23 @@
             }
 
             try {
-                const response = await fetch(`/api/share/${id}`);
+                // Initialize Supabase client
+                const supabaseUrl = 'YOUR_SUPABASE_URL'; // Replace with your Supabase URL
+                const supabaseKey = 'YOUR_SUPABASE_ANON_KEY'; // Replace with your anon key
+                const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+                // Fetch data from Supabase
+                const { data, error } = await supabase
+                    .from('shares')
+                    .select('content, font, theme')
+                    .eq('id', id)
+                    .single();
                 
-                if (!response.ok) {
-                    if (response.status === 404) {
-                        showError('This shared link has expired or does not exist.');
-                    } else {
-                        showError('Failed to load shared content.');
-                    }
+                if (error || !data) {
+                    showError('This shared link has expired or does not exist.');
                     return;
                 }
 
-                const data = await response.json();
-                
                 if (!data.content) {
                     showError('No content found.');
                     return;

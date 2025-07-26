@@ -1,4 +1,9 @@
-import { createClient } from 'redis';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -12,24 +17,16 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing ID parameter' });
     }
 
-    // Connect to Redis
-    const client = createClient({
-      url: process.env.REDIS_URL
-    });
+    // Fetch the data from Supabase
+    const { data, error } = await supabase
+      .from('shares')
+      .select('content, font, theme')
+      .eq('id', id)
+      .single();
 
-    await client.connect();
-
-    // Fetch the data from Redis
-    const dataString = await client.get(id);
-
-    await client.disconnect();
-
-    if (!dataString) {
+    if (error || !data) {
       return res.status(404).json({ error: 'Shared content not found' });
     }
-
-    // Parse the JSON data
-    const data = JSON.parse(dataString);
 
     // Return the data
     res.status(200).json({

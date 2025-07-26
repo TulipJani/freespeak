@@ -1,5 +1,10 @@
-import { createClient } from 'redis';
+import { createClient } from '@supabase/supabase-js';
 import { nanoid } from 'nanoid';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -13,28 +18,23 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    // Connect to Redis
-    const client = createClient({
-      url: process.env.REDIS_URL
-    });
-
-    await client.connect();
-
     // Generate a short, unique ID
     const id = nanoid(6);
 
-    // Store the data in Redis
-    await client.set(id, JSON.stringify({
-      content,
-      font,
-      theme,
-      createdAt: new Date().toISOString()
-    }));
+    // Store the data in Supabase
+    const { error } = await supabase
+      .from('shares')
+      .insert({
+        id,
+        content,
+        font,
+        theme
+      });
 
-    // Set expiration (optional - 30 days)
-    await client.expire(id, 30 * 24 * 60 * 60);
-
-    await client.disconnect();
+    if (error) {
+      console.error('Supabase error:', error);
+      return res.status(500).json({ error: 'Failed to store data' });
+    }
 
     // Return the ID
     res.status(201).json({ id });
