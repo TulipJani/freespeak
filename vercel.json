@@ -1,0 +1,16 @@
+{
+  "rewrites": [
+    {
+      "source": "/s/:id",
+      "destination": "/public/s/[id]/index.html"
+    }
+  ],
+  "functions": {
+    "api/share.js": {
+      "maxDuration": 10
+    },
+    "api/share/[id].js": {
+      "maxDuration": 10
+    }
+  }
+} 

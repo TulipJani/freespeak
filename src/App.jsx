@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Routes, Route, useParams } from 'react-router-dom';
 
 // --- CONFIGURATION & HELPERS ---
 
@@ -69,6 +70,9 @@ const HistoryIcon = ({ theme }) => (
 );
 const SunIcon = ({ theme }) => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={theme.icon}><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>);
 const MoonIcon = ({ theme }) => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={theme.icon}><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>);
+const LinkIcon = ({ className }) => (
+    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" className={className}><path d="M7.5 12.5l5-5m-2.5-2.5h4a2 2 0 0 1 2 2v4m-2.5 2.5l-5-5m-2.5 2.5v4a2 2 0 0 0 2 2h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+);
 
 // --- THEME DEFINITION ---
 const themes = {
@@ -122,7 +126,7 @@ const SpeechControl = ({ onStart, onStop, isListening, isSpeechSupported, elapse
     </div>
 );
 
-const TopRightControls = ({ onFontChange, currentFontName, onToggleMode, isLightMode, onToggleSidebar, onZoomIn, onZoomOut, theme }) => (
+const TopRightControls = ({ onFontChange, currentFontName, onToggleMode, isLightMode, onToggleSidebar, onZoomIn, onZoomOut, theme, onShare }) => (
     <div className="absolute top-4 right-4 z-20 flex items-center space-x-1">
         <div className={`flex items-center ${theme.controlBg} backdrop-blur-sm`}>
             <button onClick={onZoomOut} className={`p-2 ${theme.controlHover} transition-colors`} title="Decrease font size">-</button>
@@ -131,6 +135,9 @@ const TopRightControls = ({ onFontChange, currentFontName, onToggleMode, isLight
         </div>
         <button onClick={onFontChange} className={`${theme.controlBg} backdrop-blur-sm px-4 py-2 text-sm ${theme.controlHover} transition-colors`}>
             Font: <span className={`font-semibold ${isLightMode ? 'text-black' : 'text-white'}`}>{currentFontName}</span>
+        </button>
+        <button onClick={onShare} className={`${theme.controlBg} backdrop-blur-sm p-2 ${theme.controlHover} transition-colors`} title="Share current entry">
+            <LinkIcon className="text-blue-500" />
         </button>
         <button onClick={onToggleMode} className={`${theme.controlBg} backdrop-blur-sm p-2 ${theme.controlHover} transition-colors`}>
             {isLightMode ? <MoonIcon theme={theme} /> : <SunIcon theme={theme} />}
@@ -147,7 +154,6 @@ const SidebarTabs = ({ tabs, activeTabId, onTabSwitch, onTabAdd, onTabDelete, sh
         const firstLine = content.split('\n')[0].trim();
         return firstLine.length > 40 ? firstLine.substring(0, 40) + '...' : firstLine;
     };
-
     return (
         <>
             <div className={`fixed top-0 right-0 h-full w-80 ${theme.sidebarBg} backdrop-blur-lg border-l ${theme.sidebarBorder} transform transition-transform duration-300 z-40 ${showSidebar ? 'translate-x-0' : 'translate-x-full'}`}>
@@ -257,7 +263,6 @@ export default function App() {
         stableTextOnStartRef.current = currentTab?.content ? currentTab.content.trim() + ' ' : '';
         recognitionRef.current.start();
     };
-    
     const handleStopListening = () => {
         if (!isListening || !recognitionRef.current) return;
         recognitionRef.current.stop();
@@ -288,6 +293,38 @@ export default function App() {
         setActiveTabId(newActiveId);
     };
 
+    const handleShare = async () => {
+        const currentTab = tabs.find(tab => tab.id === activeTabId);
+        if (!currentTab?.content?.trim()) {
+            alert('Please add some content before sharing.');
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/share', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    content: currentTab.content,
+                    font: currentFont.name,
+                    theme: isLightMode ? 'light' : 'dark'
+                })
+            });
+            
+            if (!response.ok) throw new Error('Failed to share');
+            
+            const { id } = await response.json();
+            const shareUrl = `${window.location.origin}/s/${id}`;
+            
+            // Copy to clipboard
+            await navigator.clipboard.writeText(shareUrl);
+            alert('Link copied to clipboard!');
+        } catch (error) {
+            console.error('Share error:', error);
+            alert('Failed to share. Please try again.');
+        }
+    };
+
     const currentFont = FONT_OPTIONS[fontIndex];
     const currentFontSize = FONT_SIZES[fontSizeIndex];
     const currentTab = tabs.find(tab => tab.id === activeTabId);
@@ -295,9 +332,8 @@ export default function App() {
 
     return (
         <main style={{ ...currentFont.style, fontSize: `${currentFontSize}px` }} className={`${theme.bg} ${theme.text} transition-colors duration-300`}>
-            <TopRightControls onFontChange={handleFontChange} currentFontName={currentFont.name} onToggleMode={() => setIsLightMode(p => !p)} isLightMode={isLightMode} onToggleSidebar={() => setShowSidebar(p => !p)} onZoomIn={handleZoomIn} onZoomOut={handleZoomOut} theme={theme} />
+            <TopRightControls onFontChange={handleFontChange} currentFontName={currentFont.name} onToggleMode={() => setIsLightMode(p => !p)} isLightMode={isLightMode} onToggleSidebar={() => setShowSidebar(p => !p)} onZoomIn={handleZoomIn} onZoomOut={handleZoomOut} theme={theme} onShare={handleShare} />
             <SpeechControl onStart={handleStartListening} onStop={handleStopListening} isListening={isListening} isSpeechSupported={isSpeechSupported} elapsedTime={elapsedTime} theme={theme} />
-            
             <div className="min-h-screen flex flex-col items-center justify-center px-4 sm:px-8 pt-24 pb-16">
                 <div className="w-full max-w-3xl">
                     <textarea
@@ -309,7 +345,6 @@ export default function App() {
                     />
                 </div>
             </div>
-
             <SidebarTabs tabs={tabs} activeTabId={activeTabId} onTabSwitch={setActiveTabId} onTabAdd={handleTabAdd} onTabDelete={handleTabDelete} showSidebar={showSidebar} onCloseSidebar={() => setShowSidebar(false)} theme={theme} />
         </main>
     );
