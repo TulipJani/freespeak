@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, useParams } from 'react-router-dom';
-import { nanoid } from 'nanoid';
 
 // --- CONFIGURATION & HELPERS ---
 
@@ -108,6 +107,7 @@ const themes = {
 };
 
 // --- UI COMPONENTS ---
+
 const Timer = ({ seconds }) => {
     const formatTime = (s) => `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
     return <span className="text-base font-mono w-14 text-center text-red-500">{formatTime(seconds)}</span>;
@@ -168,8 +168,8 @@ const SidebarTabs = ({ tabs, activeTabId, onTabSwitch, onTabAdd, onTabDelete, sh
                                 <div key={tab.id} className={`group flex items-center justify-between gap-2 transition-colors cursor-pointer px-3 py-2 ${tab.id === activeTabId ? theme.sidebarActive : `${theme.sidebarText} ${theme.sidebarHover}`}`} onClick={() => onTabSwitch(tab.id)}>
                                     <span className="flex-1 truncate text-sm font-medium select-none">{getTabName(tab.content)}</span>
                                     {tabs.length > 1 && (<button className="opacity-0 group-hover:opacity-60 hover:!opacity-100 transition p-1" onClick={e => { e.stopPropagation(); onTabDelete(tab.id); }} title="Delete entry"><CrossIcon className="text-gray-500 group-hover:text-red-500" /></button>)}
-                    </div>
-                ))}
+                                </div>
+                            ))}
                         </div>
                     </div>
                     <div className={`p-3 border-t ${theme.sidebarBorder}`}>
@@ -182,39 +182,97 @@ const SidebarTabs = ({ tabs, activeTabId, onTabSwitch, onTabAdd, onTabDelete, sh
     );
 }
 
+// Utility to encode share data
+function encodeShareData({ content, fontName, theme }) {
+    const obj = { c: content, f: fontName, t: theme };
+    let json = JSON.stringify(obj);
+    let b64 = btoa(unescape(encodeURIComponent(json)));
+    // URL-safe base64
+    return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function getShareUrl({ content, fontName, theme }) {
+    const data = encodeShareData({ content, fontName, theme });
+    return `${window.location.origin}/#/s/${data}`;
+}
+
+const ShareModal = ({ open, onClose, tab, fontName, themeName }) => {
+    const [copied, setCopied] = useState(false);
+    const ref = useRef();
+    // Always call hooks first
+    let url = '';
+    if (tab) {
+        url = getShareUrl({ content: tab.content, fontName, theme: themeName });
+    }
+    useEffect(() => {
+        function onKey(e) { if (e.key === 'Escape') onClose(); }
+        if (open) document.addEventListener('keydown', onKey);
+        return () => document.removeEventListener('keydown', onKey);
+    }, [open, onClose]);
+    if (!open || !tab) return null;
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+            <div className="bg-white dark:bg-[#232323] rounded-xl shadow-xl p-6 w-full max-w-md relative" onClick={e => e.stopPropagation()}>
+                <h2 className="text-lg font-semibold mb-2">Share Entry</h2>
+                            <input
+                    ref={ref}
+                    className="w-full p-2 rounded border border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-[#181818] text-sm mb-2 text-gray-800 dark:text-gray-100 select-all"
+                    value={url}
+                    readOnly
+                    onFocus={e => e.target.select()}
+                />
+                <div className="flex items-center gap-2 mb-2">
+                    <button
+                        className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+                        onClick={() => { navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1200); }}
+                    >{copied ? 'Copied!' : 'Copy Link'}</button>
+                            <button
+                        className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded hover:bg-gray-300 dark:hover:bg-gray-600 text-sm"
+                        onClick={onClose}
+                    >Close</button>
+                    </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">Note: Sharing is suitable for most entries, but extremely long documents may exceed URL length limits.</div>
+            </div>
+        </div>
+    );
+};
+
+function decodeShareData(dataString) {
+    try {
+        let b64 = dataString.replace(/-/g, '+').replace(/_/g, '/');
+        // Pad base64 if needed
+        while (b64.length % 4) b64 += '=';
+        const json = decodeURIComponent(escape(atob(b64)));
+        const obj = JSON.parse(json);
+        if (!obj.c) throw new Error('No content');
+        return obj;
+    } catch (e) {
+        return { error: 'Invalid or corrupted share link.' };
+    }
+}
+
+const ShareView = () => {
+    const { dataString } = useParams();
+    const [data, setData] = useState(null);
+    useEffect(() => {
+        if (dataString) setData(decodeShareData(dataString));
+    }, [dataString]);
+    if (!dataString) return <div className="min-h-screen flex items-center justify-center text-center text-red-500">Invalid share link.</div>;
+    if (!data) return <div className="min-h-screen flex items-center justify-center text-center">Loading...</div>;
+    if (data.error) return <div className="min-h-screen flex items-center justify-center text-center text-red-500">{data.error}</div>;
+    const font = FONT_OPTIONS.find(f => f.name === data.f) || FONT_OPTIONS[0];
+    const theme = (data.t === 'dark') ? themes.dark : themes.light;
+    return (
+        <div className={`min-h-screen w-full flex flex-col items-center justify-center px-4 ${theme.bg} ${theme.text}`} style={{ ...font.style }}>
+            <div className="w-full max-w-3xl mt-16 mb-8">
+                <div className="text-xs mb-2 text-gray-400 text-center">Read-only shared entry</div>
+                <div className="whitespace-pre-wrap leading-relaxed text-lg p-4 rounded bg-white/60 dark:bg-black/30 shadow" style={{ fontFamily: font.style.fontFamily }}>{data.c}</div>
+            </div>
+        </div>
+    );
+};
+
 // --- MAIN APP ---
-
-async function shareNote(content, font, theme) {
-  const id = nanoid(6);
-  const apiKey = '$2a$10$yDW0KZDxCD3fZGm/7i.yOuVmYs9kCFVzppLTL5L.nF2ij4Fc4ffoS'; // Replace with your key
-  const url = 'https://api.jsonbin.io/v3/b';
-  const data = { content, font, theme };
-
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Master-Key': apiKey,
-      'X-Bin-Name': id,
-      'X-Collection-Id': '', // Optional: you can organize bins in collections
-    },
-    body: JSON.stringify(data)
-  });
-  const json = await res.json();
-  // json.record is your data, json.metadata.id is the bin id
-  return json.metadata.id; // Use this as the share id
-}
-
-async function fetchNote(id) {
-  const apiKey = '$2a$10$yDW0KZDxCD3fZGm/7i.yOuVmYs9kCFVzppLTL5L.nF2ij4Fc4ffoS'; // Replace with your key
-  const url = `https://api.jsonbin.io/v3/b/${id}/latest`;
-  const res = await fetch(url, {
-    headers: { 'X-Master-Key': apiKey }
-  });
-  if (!res.ok) return null;
-  const json = await res.json();
-  return json.record;
-}
 
 export default function App() {
     const [sessionId] = useState(getOrCreateSessionId);
@@ -229,6 +287,7 @@ export default function App() {
     const [elapsedTime, setElapsedTime] = useState(0);
     const [isLightMode, setIsLightMode] = useState(true);
     const [showSidebar, setShowSidebar] = useState(false);
+    const [shareModal, setShareModal] = useState({ open: false, tab: null });
 
     const recognitionRef = useRef(null);
     const textAreaRef = useRef(null);
@@ -295,6 +354,7 @@ export default function App() {
         stableTextOnStartRef.current = currentTab?.content ? currentTab.content.trim() + ' ' : '';
         recognitionRef.current.start();
     };
+    
     const handleStopListening = () => {
         if (!isListening || !recognitionRef.current) return;
         recognitionRef.current.stop();
@@ -325,47 +385,33 @@ export default function App() {
         setActiveTabId(newActiveId);
     };
 
-    const handleShare = async () => {
-        const currentTab = tabs.find(tab => tab.id === activeTabId);
-        if (!currentTab?.content?.trim()) {
-            alert('Please add some content before sharing.');
-            return;
-        }
-        
-        try {
-            const id = await shareNote(currentTab.content, FONT_OPTIONS[fontIndex].name, isLightMode ? 'light' : 'dark');
-            const shareUrl = `${window.location.origin}/s/${id}`;
-            
-            // Copy to clipboard
-            await navigator.clipboard.writeText(shareUrl);
-            alert('Link copied to clipboard!');
-        } catch (error) {
-            console.error('Share error:', error);
-            alert('Failed to share. Please try again.');
-        }
-    };
-
     const currentFont = FONT_OPTIONS[fontIndex];
     const currentFontSize = FONT_SIZES[fontSizeIndex];
     const currentTab = tabs.find(tab => tab.id === activeTabId);
     const theme = isLightMode ? themes.light : themes.dark;
 
     return (
-        <main style={{ ...currentFont.style, fontSize: `${currentFontSize}px` }} className={`${theme.bg} ${theme.text} transition-colors duration-300`}>
-            <TopRightControls onFontChange={handleFontChange} currentFontName={currentFont.name} onToggleMode={() => setIsLightMode(p => !p)} isLightMode={isLightMode} onToggleSidebar={() => setShowSidebar(p => !p)} onZoomIn={handleZoomIn} onZoomOut={handleZoomOut} theme={theme} onShare={handleShare} />
-            <SpeechControl onStart={handleStartListening} onStop={handleStopListening} isListening={isListening} isSpeechSupported={isSpeechSupported} elapsedTime={elapsedTime} theme={theme} />
-            <div className="min-h-screen flex flex-col items-center justify-center px-4 sm:px-8 pt-24 pb-16">
+        <Routes>
+            <Route path="/s/:dataString" element={<ShareView />} />
+            <Route path="*" element={
+                <main style={{ ...currentFont.style, fontSize: `${currentFontSize}px` }} className={`${theme.bg} ${theme.text} transition-colors duration-300`}>
+                    <TopRightControls onFontChange={handleFontChange} currentFontName={currentFont.name} onToggleMode={() => setIsLightMode(p => !p)} isLightMode={isLightMode} onToggleSidebar={() => setShowSidebar(p => !p)} onZoomIn={handleZoomIn} onZoomOut={handleZoomOut} theme={theme} onShare={() => setShareModal({ open: true, tab: currentTab })} />
+                    <SpeechControl onStart={handleStartListening} onStop={handleStopListening} isListening={isListening} isSpeechSupported={isSpeechSupported} elapsedTime={elapsedTime} theme={theme} />
+                    <div className="min-h-screen flex flex-col items-center justify-center px-4 sm:px-8 pt-24 pb-16">
                 <div className="w-full max-w-3xl">
                     <textarea
                         ref={textAreaRef}
                         value={currentTab?.content || ""}
                         onChange={e => handleTabContentChange(e.target.value)}
-                        placeholder="Just write..."
-                        className={`w-full h-auto min-h-[75vh] p-0 bg-transparent leading-relaxed resize-none border-none focus:outline-none focus:ring-0 ${theme.placeholder}`}
+                                placeholder="Just write..."
+                                className={`w-full h-auto min-h-[75vh] p-0 bg-transparent leading-relaxed resize-none border-none focus:outline-none focus:ring-0 ${theme.placeholder}`}
                     />
                 </div>
             </div>
-            <SidebarTabs tabs={tabs} activeTabId={activeTabId} onTabSwitch={setActiveTabId} onTabAdd={handleTabAdd} onTabDelete={handleTabDelete} showSidebar={showSidebar} onCloseSidebar={() => setShowSidebar(false)} theme={theme} />
+                    <SidebarTabs tabs={tabs} activeTabId={activeTabId} onTabSwitch={setActiveTabId} onTabAdd={handleTabAdd} onTabDelete={handleTabDelete} showSidebar={showSidebar} onCloseSidebar={() => setShowSidebar(false)} theme={theme} />
+                    <ShareModal open={shareModal.open} onClose={() => setShareModal({ open: false, tab: null })} tab={shareModal.tab} fontName={currentFont.name} themeName={isLightMode ? 'light' : 'dark'} />
         </main>
+            } />
+        </Routes>
     );
 }
