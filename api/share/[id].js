@@ -1,4 +1,4 @@
-import { kv } from '@vercel/kv';
+import { createClient } from 'redis';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -12,12 +12,24 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing ID parameter' });
     }
 
-    // Fetch the data from Vercel KV
-    const data = await kv.get(id);
+    // Connect to Redis
+    const client = createClient({
+      url: process.env.REDIS_URL
+    });
 
-    if (!data) {
+    await client.connect();
+
+    // Fetch the data from Redis
+    const dataString = await client.get(id);
+
+    await client.disconnect();
+
+    if (!dataString) {
       return res.status(404).json({ error: 'Shared content not found' });
     }
+
+    // Parse the JSON data
+    const data = JSON.parse(dataString);
 
     // Return the data
     res.status(200).json({

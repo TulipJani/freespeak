@@ -12,5 +12,8 @@
     "api/share/[id].js": {
       "maxDuration": 10
     }
+  },
+  "env": {
+    "REDIS_URL": "@redis-url"
   }
 } 
