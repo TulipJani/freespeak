@@ -107,7 +107,6 @@ const themes = {
 };
 
 // --- UI COMPONENTS ---
-
 const Timer = ({ seconds }) => {
     const formatTime = (s) => `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
     return <span className="text-base font-mono w-14 text-center text-red-500">{formatTime(seconds)}</span>;
