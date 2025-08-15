@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, useParams } from 'react-router-dom';
 
 // --- CONFIGURATION & HELPERS ---
-const finalTranscriptRef = useRef("");
 
 const FONT_OPTIONS = [
     { name: 'System', style: { fontFamily: "system-ui, -apple-system, sans-serif" } },
@@ -296,6 +295,7 @@ export default function App() {
     const timerIntervalRef = useRef(null);
 
     const isSpeechSupported = typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
+
     useEffect(() => {
         if (!isSpeechSupported) return;
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -303,61 +303,26 @@ export default function App() {
         recognition.continuous = true;
         recognition.interimResults = true;
         recognition.lang = 'en-US';
-    
+        
         const handleEnd = () => setIsListening(false);
         recognition.onstart = () => setIsListening(true);
-        recognition.onend = () => {
-            if (isListening) {
-                recognition.start(); // restart automatically
-            }
-        };
-        
+        recognition.onend = handleEnd;
         recognition.onerror = (e) => {
             console.error("Speech recognition error:", e.error);
             handleEnd();
         };
-    
-        const isMobile = /Mobi|Android/i.test(navigator.userAgent);
-    
         recognition.onresult = (event) => {
-            let finalTranscript = "";
-            let interimTranscript = "";
-        
-            for (let i = event.resultIndex; i < event.results.length; ++i) {
-                const transcript = event.results[i][0].transcript;
-                if (event.results[i].isFinal) {
-                    finalTranscript += transcript + " ";
-                } else {
-                    interimTranscript += transcript;
-                }
-            }
-        
-            setTabs(prevTabs =>
-                prevTabs.map(tab =>
-                    tab.id === activeTabId
-                        ? {
-                            ...tab,
-                            content: finalTranscriptRef.current + interimTranscript
-                        }
-                        : tab
-                )
-            );
-        
-            // Update saved final text when new final results come in
-            if (finalTranscript) {
-                finalTranscriptRef.current += finalTranscript;
-            }
+            const transcript = Array.from(event.results).map(r => r[0]).map(r => r.transcript).join('');
+            setTabs(prevTabs => prevTabs.map(tab =>
+                tab.id === activeTabId ? { ...tab, content: stableTextOnStartRef.current + transcript } : tab
+            ));
         };
-        
-    
         recognitionRef.current = recognition;
-    
+        
         return () => {
             recognition.removeEventListener('end', handleEnd);
         };
     }, [isSpeechSupported, activeTabId]);
-    
-    
 
     useEffect(() => {
         if (isListening) {
