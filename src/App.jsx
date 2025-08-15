@@ -295,62 +295,67 @@ export default function App() {
     const stableTextOnStartRef = useRef('');
     const timerIntervalRef = useRef(null);
 
-    const isSpeechSupported = typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);useEffect(() => {
+    const isSpeechSupported = typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
+    useEffect(() => {
         if (!isSpeechSupported) return;
-    
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         const recognition = new SpeechRecognition();
-        recognition.continuous = true; // mobile might ignore this
+        recognition.continuous = true;
         recognition.interimResults = true;
         recognition.lang = 'en-US';
     
-        const finalTranscriptRef = { current: "" }; // persistent final text
-    
+        const handleEnd = () => setIsListening(false);
         recognition.onstart = () => setIsListening(true);
+        recognition.onend = () => {
+            if (isListening) {
+                recognition.start(); // restart automatically
+            }
+        };
+        
         recognition.onerror = (e) => {
             console.error("Speech recognition error:", e.error);
-            setIsListening(false);
+            handleEnd();
         };
     
-        recognition.onresult = (event) => {
-            let interimTranscript = "";
-            let finalTranscriptChunk = "";
+        const isMobile = /Mobi|Android/i.test(navigator.userAgent);
     
+        recognition.onresult = (event) => {
+            let finalTranscript = "";
+            let interimTranscript = "";
+        
             for (let i = event.resultIndex; i < event.results.length; ++i) {
                 const transcript = event.results[i][0].transcript;
                 if (event.results[i].isFinal) {
-                    finalTranscriptChunk += transcript + " ";
+                    finalTranscript += transcript + " ";
                 } else {
                     interimTranscript += transcript;
                 }
             }
-    
-            if (finalTranscriptChunk) {
-                finalTranscriptRef.current += finalTranscriptChunk;
-            }
-    
+        
             setTabs(prevTabs =>
                 prevTabs.map(tab =>
                     tab.id === activeTabId
-                        ? { ...tab, content: finalTranscriptRef.current + interimTranscript }
+                        ? {
+                            ...tab,
+                            content: finalTranscriptRef.current + interimTranscript
+                        }
                         : tab
                 )
             );
+        
+            // Update saved final text when new final results come in
+            if (finalTranscript) {
+                finalTranscriptRef.current += finalTranscript;
+            }
         };
-    
-        recognition.onend = () => {
-            setIsListening(false);
-            // Mobile workaround: auto-restart if we were supposed to be listening
-            if (isListening) recognition.start();
-        };
+        
     
         recognitionRef.current = recognition;
     
         return () => {
-            recognition.stop();
+            recognition.removeEventListener('end', handleEnd);
         };
-    }, [isSpeechSupported, activeTabId, isListening]);
-    
+    }, [isSpeechSupported, activeTabId]);
     
     
 
