@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, useParams } from 'react-router-dom';
 
 // --- CONFIGURATION & HELPERS ---
+const finalTranscriptRef = useRef("");
 
 const FONT_OPTIONS = [
     { name: 'System', style: { fontFamily: "system-ui, -apple-system, sans-serif" } },
@@ -305,7 +306,12 @@ export default function App() {
     
         const handleEnd = () => setIsListening(false);
         recognition.onstart = () => setIsListening(true);
-        recognition.onend = handleEnd;
+        recognition.onend = () => {
+            if (isListening) {
+                recognition.start(); // restart automatically
+            }
+        };
+        
         recognition.onerror = (e) => {
             console.error("Speech recognition error:", e.error);
             handleEnd();
@@ -314,24 +320,35 @@ export default function App() {
         const isMobile = /Mobi|Android/i.test(navigator.userAgent);
     
         recognition.onresult = (event) => {
-            const transcript = Array.from(event.results)
-                .map(r => r[0].transcript)
-                .join('');
-    
+            let finalTranscript = "";
+            let interimTranscript = "";
+        
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+                const transcript = event.results[i][0].transcript;
+                if (event.results[i].isFinal) {
+                    finalTranscript += transcript + " ";
+                } else {
+                    interimTranscript += transcript;
+                }
+            }
+        
             setTabs(prevTabs =>
                 prevTabs.map(tab =>
                     tab.id === activeTabId
                         ? {
                             ...tab,
-                            // On mobile: just use transcript directly to avoid duplication
-                            content: isMobile
-                                ? transcript
-                                : stableTextOnStartRef.current + transcript
+                            content: finalTranscriptRef.current + interimTranscript
                         }
                         : tab
                 )
             );
+        
+            // Update saved final text when new final results come in
+            if (finalTranscript) {
+                finalTranscriptRef.current += finalTranscript;
+            }
         };
+        
     
         recognitionRef.current = recognition;
     
