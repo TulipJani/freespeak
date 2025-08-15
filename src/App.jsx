@@ -295,7 +295,6 @@ export default function App() {
     const timerIntervalRef = useRef(null);
 
     const isSpeechSupported = typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
-
     useEffect(() => {
         if (!isSpeechSupported) return;
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -303,7 +302,7 @@ export default function App() {
         recognition.continuous = true;
         recognition.interimResults = true;
         recognition.lang = 'en-US';
-        
+    
         const handleEnd = () => setIsListening(false);
         recognition.onstart = () => setIsListening(true);
         recognition.onend = handleEnd;
@@ -311,18 +310,37 @@ export default function App() {
             console.error("Speech recognition error:", e.error);
             handleEnd();
         };
+    
+        const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+    
         recognition.onresult = (event) => {
-            const transcript = Array.from(event.results).map(r => r[0]).map(r => r.transcript).join('');
-            setTabs(prevTabs => prevTabs.map(tab =>
-                tab.id === activeTabId ? { ...tab, content: stableTextOnStartRef.current + transcript } : tab
-            ));
+            const transcript = Array.from(event.results)
+                .map(r => r[0].transcript)
+                .join('');
+    
+            setTabs(prevTabs =>
+                prevTabs.map(tab =>
+                    tab.id === activeTabId
+                        ? {
+                            ...tab,
+                            // On mobile: just use transcript directly to avoid duplication
+                            content: isMobile
+                                ? transcript
+                                : stableTextOnStartRef.current + transcript
+                        }
+                        : tab
+                )
+            );
         };
+    
         recognitionRef.current = recognition;
-        
+    
         return () => {
             recognition.removeEventListener('end', handleEnd);
         };
     }, [isSpeechSupported, activeTabId]);
+    
+    
 
     useEffect(() => {
         if (isListening) {
