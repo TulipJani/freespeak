@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { getFirestore, doc, setDoc, getDoc } from 'firebase/firestore';
 import { initializeApp } from 'firebase/app';
 
-
+// --- CONFIGURATION & HELPERS ---
 const firebaseConfig = {
     apiKey: "AIzaSyBeaKTVwYG9prB9fKTa_1NdSrM9o6qX9hY",
     authDomain: "freespeak-87f24.firebaseapp.com",
@@ -12,8 +12,6 @@ const firebaseConfig = {
     appId: "1:741713207667:web:0ba4deffbfe4447ef2a506",
     measurementId: "G-KJYPCCEN2T"
 };
-
-
 let db;
 try {
     const app = initializeApp(firebaseConfig);
@@ -38,15 +36,15 @@ const FONT_SIZES = [14, 16, 18, 20, 22, 24, 28, 32];
 const themes = {
     light: {
         bg: 'bg-[#F9F9F9]', text: 'text-[#1F1F1F]', placeholder: 'placeholder-gray-400',
-        icon: 'text-gray-600', controlBg: 'bg-white/80', controlHover: 'hover:bg-black/5',
-        tabBg: 'bg-gray-200', tabText: 'text-gray-600', tabActiveBg: 'bg-[#F9F9F9]',
-        tabActiveText: 'text-black', tabHover: 'hover:bg-gray-300', topbarBorder: 'border-gray-200',
+        icon: 'text-gray-600', controlBg: 'bg-white/60', controlHover: 'hover:bg-black/5',
+        tabBg: 'bg-gray-200/80', tabText: 'text-gray-600', tabActiveBg: 'bg-[#F9F9F9]',
+        tabActiveText: 'text-black', tabHover: 'hover:bg-gray-300/80', topbarBorder: 'border-gray-300/50',
     },
     dark: {
         bg: 'bg-[#121212]', text: 'text-[#E0E0E0]', placeholder: 'placeholder-gray-600',
         icon: 'text-gray-400', controlBg: 'bg-black/50', controlHover: 'hover:bg-white/10',
-        tabBg: 'bg-[#202124]', tabText: 'text-gray-400', tabActiveBg: 'bg-[#121212]',
-        tabActiveText: 'text-white', tabHover: 'hover:bg-[#2f3033]', topbarBorder: 'border-gray-800',
+        tabBg: 'bg-[#202124]/80', tabText: 'text-gray-400', tabActiveBg: 'bg-[#121212]',
+        tabActiveText: 'text-white', tabHover: 'hover:bg-[#2f3033]/80', topbarBorder: 'border-gray-700/50',
     }
 };
 
@@ -101,8 +99,15 @@ const ZoomInIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" heig
 const ZoomOutIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>;
 const PlusIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>;
 
-
 // --- UI COMPONENTS ---
+
+const AppHeader = () => (
+    <div className="fixed top-0 left-0 right-0 h-12 flex items-center justify-center z-40 pointer-events-none">
+        <h1 className="text-xs font-semibold tracking-widest uppercase text-gray-400 dark:text-gray-600 select-none">
+            FREEWRITE
+        </h1>
+    </div>
+);
 
 const ChromeTabsBar = ({ tabs, activeTabId, onTabSwitch, onTabAdd, onTabDelete, theme }) => {
     const getTabName = (tab) => {
@@ -113,35 +118,42 @@ const ChromeTabsBar = ({ tabs, activeTabId, onTabSwitch, onTabAdd, onTabDelete, 
     };
 
     return (
-        <div className={`fixed top-0 left-0 right-0 h-11 ${theme.tabBg} z-30 flex items-end border-b ${theme.topbarBorder} select-none`}>
-            <div className="flex items-center h-full overflow-x-auto">
-                {tabs.map(tab => (
-                    <div
-                        key={tab.id}
-                        onClick={() => onTabSwitch(tab.id)}
-                        className={`group relative flex items-center h-full pl-4 pr-3 cursor-pointer border-r ${theme.topbarBorder} ${tab.id === activeTabId ? `${theme.tabActiveBg} ${theme.tabActiveText}` : `${theme.tabText} ${theme.tabHover}`}`}
-                    >
-                        <span className="truncate text-sm font-medium mr-2">{getTabName(tab)}</span>
-                        {tabs.length > 1 && (
-                            <button
-                                onClick={e => { e.stopPropagation(); onTabDelete(tab.id); }}
-                                className="opacity-50 group-hover:opacity-100 rounded-full hover:bg-black/10 dark:hover:bg-white/10 p-1 transition-opacity"
-                                title="Close tab"
-                            >
-                                <CrossIcon className="w-3 h-3" />
-                            </button>
-                        )}
-                    </div>
-                ))}
+        <>
+            <div className={`h-7 flex items-center justify-center pointer-events-none border-b border-gray-700 backdrop-blur-md`}>
+                <h1 className="text-xs font-semibold tracking-[1em] uppercase text-gray-400 dark:text-gray-600 select-none">
+                    FREEWRITE
+                </h1>
             </div>
-            <button
-                onClick={onTabAdd}
-                className={`flex items-center justify-center h-full px-4 ${theme.tabText} ${theme.tabHover} border-l ${theme.topbarBorder}`}
-                title="New Tab"
-            >
-                <PlusIcon />
-            </button>
-        </div>
+            <div className={`fixed top-7 left-0 right-0 h-11 ${theme.tabBg} backdrop-blur-md z-30 flex items-end border-b ${theme.topbarBorder} select-none`}>
+                {/* This empty div is a placeholder to center the tabs, you can add a logo or title here if you wish */}
+                <div className="flex-1 flex items-center h-full overflow-x-auto">
+                    {tabs.map(tab => (
+                        <div
+                            key={tab.id}
+                            onClick={() => onTabSwitch(tab.id)}
+                            className={`group relative flex items-center h-full pl-4 pr-3 cursor-pointer border-r ${theme.topbarBorder} ${tab.id === activeTabId ? `${theme.tabActiveBg} ${theme.tabActiveText}` : `${theme.tabText} ${theme.tabHover}`}`}
+                        >
+                            <span className="truncate text-sm font-medium mr-2">{getTabName(tab)}</span>
+                            {tabs.length > 1 && (
+                                <button
+                                    onClick={e => { e.stopPropagation(); onTabDelete(tab.id); }}
+                                    className="opacity-50 group-hover:opacity-100 rounded-full hover:bg-black/10 dark:hover:bg-white/10 p-1 transition-opacity"
+                                    title="Close tab"
+                                >
+                                    <CrossIcon className="w-3 h-3" />
+                                </button>
+                            )}
+                        </div>
+                    ))}
+                </div>
+                <button
+                    onClick={onTabAdd}
+                    className={`flex items-center justify-center h-full px-4 ${theme.tabText} ${theme.tabHover} border-l ${theme.topbarBorder}`}
+                    title="New Tab"
+                >
+                    <PlusIcon />
+                </button>
+            </div></>
     );
 };
 
@@ -152,11 +164,10 @@ const ControlBar = ({
     toggleTheme, isLightMode
 }) => (
     <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-20">
-        <div className="flex items-center space-x-1 p-2 rounded-full bg-white/80 dark:bg-black/50 backdrop-blur-lg shadow-xl">
-            {/* Font Cycle Button */}
+        <div className={`flex items-center space-x-1 p-2 rounded-full ${theme.controlBg} backdrop-blur-xl shadow-2xl border border-white/20 dark:border-white/10`}>
             <button
                 onClick={handleFontChange}
-                className={`text-sm font-medium rounded-full py-2.5 px-4 ${theme.controlHover} transition-colors`}
+                className={`text-sm font-medium rounded-full py-2.5 px-4 ${theme.controlHover} transition-colors whitespace-nowrap`}
                 style={{ ...currentFont.style }}
                 title="Next font"
             >
@@ -164,7 +175,7 @@ const ControlBar = ({
             </button>
             <button onClick={handleZoomOut} className={`rounded-full p-2.5 ${theme.controlHover} transition-colors`} title="Decrease font size"><ZoomOutIcon /></button>
             <button onClick={handleZoomIn} className={`rounded-full p-2.5 ${theme.controlHover} transition-colors`} title="Increase font size"><ZoomInIcon /></button>
-            <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1"></div>
+            <div className="w-px h-6 bg-gray-300/50 dark:bg-gray-700/50 mx-1"></div>
             <button onClick={toggleTheme} className={`rounded-full p-2.5 ${theme.controlHover} transition-colors`} title="Toggle theme">
                 {isLightMode ? <MoonIcon className={theme.icon} /> : <SunIcon className={theme.icon} />}
             </button>
@@ -190,25 +201,36 @@ const PublishModal = ({ open, onClose, shareableUrl, publishing }) => {
     };
 
     return (
-        <div className={`fixed inset-0 z-50 flex items-center justify-center transition-opacity duration-300 ${open ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={onClose}>
-            <div className={`bg-white dark:bg-[#232323] rounded-xl shadow-xl p-6 w-full max-w-md relative transition-transform duration-300 ${open ? 'scale-100' : 'scale-95'}`} onClick={e => e.stopPropagation()}>
+        <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 transition-opacity duration-300 ${open ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={onClose}>
+            {/* Modal Backdrop */}
+            <div className={`fixed inset-0 bg-black/30 transition-opacity duration-300 ${open ? 'opacity-100' : 'opacity-0'}`}></div>
+
+            <div
+                className={`w-full max-w-md relative transition-all duration-300
+                            bg-white/60 dark:bg-gray-800/60 backdrop-blur-2xl
+                            border border-white/30 dark:border-gray-700/30
+                            rounded-2xl shadow-2xl p-6
+                            ${open ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}`}
+                onClick={e => e.stopPropagation()}
+            >
                 <h2 className="text-lg font-semibold mb-4 text-gray-800 dark:text-gray-100">{publishing ? 'Publishing...' : 'Page Published!'}</h2>
                 {shareableUrl ? (
                     <>
                         <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Your page is live. Share this link with others.</p>
-                        <input className="w-full p-2 rounded border border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-[#181818] text-sm mb-2" value={shareableUrl} readOnly onFocus={e => e.target.select()} />
-                        <button className="w-full mb-2 px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-semibold" onClick={handleCopy}>{copied ? 'Copied!' : 'Copy Link'}</button>
+                        <input className="w-full p-2 rounded-lg border border-gray-300/50 dark:border-gray-700/50 bg-gray-100/50 dark:bg-black/20 text-sm mb-2 focus:ring-2 focus:ring-blue-500 focus:outline-none" value={shareableUrl} readOnly onFocus={e => e.target.select()} />
+                        <button className="w-full mb-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-semibold transition-colors" onClick={handleCopy}>{copied ? 'Copied!' : 'Copy Link'}</button>
                     </>
                 ) : (
                     <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">A read-only version of this note will be accessible to anyone with the link.</p>
                 )}
                 <div className="flex justify-end mt-4">
-                    <button disabled={publishing} onClick={onClose} className="px-4 py-1.5 bg-gray-200 dark:bg-gray-700 rounded text-sm font-semibold">Close</button>
+                    <button disabled={publishing} onClick={onClose} className="px-4 py-1.5 bg-gray-200/50 dark:bg-gray-700/50 rounded-lg text-sm font-semibold hover:bg-gray-300/50 dark:hover:bg-gray-600/50 transition-colors">Close</button>
                 </div>
             </div>
         </div>
     );
 };
+
 
 const PageView = () => {
     const [pageData, setPageData] = useState(null);
@@ -248,8 +270,9 @@ const PageView = () => {
     const pageTheme = (themeName === 'dark') ? themes.dark : themes.light;
 
     return (
-        <div className={`min-h-screen w-full ${pageTheme.bg} ${pageTheme.text} p-4 sm:p-8`} style={{ ...font.style }}>
-            <div className="max-w-3xl mx-auto py-8">
+        <div className={`min-h-screen w-full ${pageTheme.bg} ${pageTheme.text}`} style={{ ...font.style }}>
+            <AppHeader />
+            <div className="max-w-3xl mx-auto py-8 px-4 pt-20">
                 <div className="whitespace-pre-wrap leading-relaxed" dangerouslySetInnerHTML={{ __html: content.replace(/\n/g, '<br />') }} />
             </div>
         </div>
@@ -359,7 +382,6 @@ export default function App() {
                 {`
                     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Lora:ital,wght@0,400;0,700;1,400&family=Roboto+Mono:wght@400;700&family=Playfair+Display:wght@400;700&family=Merriweather:wght@400;700&family=Poppins:wght@400;700&display=swap');
                     textarea { -webkit-user-select: text; user-select: text; }
-                    /* Custom scrollbar for a cleaner look */
                     textarea::-webkit-scrollbar { width: 8px; }
                     textarea::-webkit-scrollbar-track { background: transparent; }
                     textarea::-webkit-scrollbar-thumb { background-color: rgba(128, 128, 128, 0.3); border-radius: 4px; }
@@ -393,8 +415,8 @@ export default function App() {
                             leading-relaxed ${theme.placeholder} overflow-y-auto
                             transition-all duration-300
                             ${isZen
-                        ? 'px-4 sm:px-8 pt-8 sm:pt-12 pb-8 sm:pb-12' // Zen Mode padding
-                        : 'px-4 sm:px-12 md:px-20 pt-16 pb-32'      // Normal Mode padding
+                        ? 'px-6 sm:px-12 pt-12 pb-12'
+                        : 'px-6 sm:px-12 md:px-20 pt-20 pb-32'
                     }`}
             />
 
